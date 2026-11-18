@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // UID do dono (Authentication > Usuários). Só ele gerencia equipe, estoque, vendas e configurações.
+    function ehDono() {
+      return request.auth != null
+        && request.auth.uid == '2L8BzHTxuwclkKNx6ezGItEWEBs1';
+    }
+
+    // Garçom/caixa: tem um documento em /lojas/{loja}/membros/{uid} com ativo = true.
+    // O dono cria esse documento (e o login em Authentication) para cada pessoa.
+    function ehEquipe(loja) {
+      return request.auth != null
+        && get(/databases/$(database)/documents/lojas/$(loja)/membros/$(request.auth.uid)).data.ativo == true;
+    }
+
+    function logado(loja) {
+      return ehDono() || ehEquipe(loja);
+    }
+
+    match /lojas/{loja} {
+
+      // Equipe: só o dono cria, altera ou desativa. Cada pessoa lê apenas o próprio cadastro.
+      match /membros/{uid} {
+        allow read: if ehDono() || request.auth.uid == uid;
+        allow write: if ehDono();
+      }
+
+      // Configurações (nome da loja, mesas, setores, PIN do dono): equipe lê, dono altera.
+      match /config/{doc} {
+        allow read: if logado(loja);
+        allow write: if ehDono();
+      }
+
+      // Mesas, contas e itens do pedido: dono e equipe.
+      match /contas/{doc} {
+        allow read, write: if logado(loja);
+      }
+      match /itens/{doc} {
+        allow read, write: if logado(loja);
+      }
+
+      // Fila de impressão (comandas e contas): dono e equipe.
+      match /impressoes/{doc} {
+        allow read, write: if logado(loja);
+      }
+
+      // Estoque: equipe lê os produtos e só consegue mexer no campo "estoque"
+      // (a baixa automática ao lançar item). Criar, apagar e mudar preço: só o dono.
+      match /produtos/{doc} {
+        allow read: if logado(loja);
+        allow create, delete: if ehDono();
+        allow update: if ehDono()
+          || (ehEquipe(loja)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estoque']));
+      }
+
+      // Histórico de movimentação de estoque: equipe só registra (create); dono lê e corrige.
+      match /movimentos/{doc} {
+        allow create: if logado(loja);
+        allow read, update, delete: if ehDono();
+      }
+
+      // Pagamentos ao fechar a conta: equipe registra; só o dono consulta e apaga (relatório de vendas).
+      match /pagamentos/{doc} {
+        allow create: if logado(loja);
+        allow read, update, delete: if ehDono();
+      }
+    }
+  }
+}

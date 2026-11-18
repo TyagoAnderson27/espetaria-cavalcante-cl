@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Espetaria | Mesas e estoque</title>
+<meta name="theme-color" content="#120a0a">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="deslogado">
+<header class="topo">
+  <a class="marca" href="#/mesas" aria-label="Ir para as mesas">
+    <img src="logo.png" alt="" width="44" height="44">
+    <span id="nomeLoja">Espetaria</span>
+  </a>
+  <nav class="abas" aria-label="Áreas do sistema">
+    <a href="#/mesas" data-aba="mesas">Mesas</a>
+    <a href="#/estoque" data-aba="estoque">Estoque</a>
+    <a href="#/vendas" data-aba="vendas">Vendas</a>
+  </nav>
+  <button type="button" class="ghost" id="bConfig" aria-label="Configurar impressão deste aparelho">Impressão</button>
+  <button type="button" class="ghost" id="bSair" aria-label="Sair do usuário"><span id="usuarioNome"></span> Sair</button>
+</header>
+<div class="faixa-aviso" id="offline" hidden role="status">Sem internet. Você pode continuar: os pedidos ficam guardados neste aparelho e seguem para os outros quando a conexão voltar.</div>
+<div class="faixa-erro" id="semConexao" hidden role="alert">Não foi possível abrir os dados deste aparelho. Feche o app e abra de novo. Se continuar, avise o suporte.</div>
+
+<section id="telaLogin" class="login" hidden>
+  <form id="fLogin" class="login-caixa" novalidate>
+    <img src="logo.png" alt="" width="84" height="84">
+    <h1 id="loginLoja">Espetaria</h1>
+    <p class="fino" id="carregando">Abrindo…</p>
+    <div id="loginCampos" hidden>
+      <label>E-mail <input type="email" id="lEmail" autocomplete="username" inputmode="email" autocapitalize="off" required></label>
+      <label>Senha <input type="password" id="lSenha" autocomplete="current-password" required></label>
+      <button class="btn" type="submit" id="bEntrar">Entrar</button>
+    </div>
+    <p class="erro" id="loginErro" role="alert"></p>
+  </form>
+  <footer class="rodape-dev"><span>Sistema desenvolvido por</span><img src="dev-logo.png" alt="Tiago Ferreira, soluções em tecnologia" width="160" height="107"></footer>
+</section>
+
+<main id="app">
+  <!-- MESAS -->
+  <section id="telaMesas" class="tela" hidden>
+    <div class="titulo-linha">
+      <h1>Mesas</h1>
+      <p class="resumo" id="resumoMesas"></p>
+    </div>
+    <div class="aviso-amarelo aviso-backup" id="avisoBackup" hidden>
+      <span id="avisoBackupTxt"></span>
+      <button type="button" class="btn pequeno" data-acao="backupAgora">Fazer backup agora</button>
+    </div>
+    <div class="grade-mesas" id="gradeMesas"></div>
+    <footer class="rodape-dev"><span>Sistema desenvolvido por</span><img src="dev-logo.png" alt="Tiago Ferreira, soluções em tecnologia" width="160" height="107"></footer>
+  </section>
+
+  <!-- CONTA / COMANDA -->
+  <section id="telaConta" class="tela" hidden>
+    <div class="conta-topo">
+      <button type="button" class="ghost" data-acao="voltar">← Mesas</button>
+      <div class="conta-titulo">
+        <h1 id="contaMesa"></h1>
+        <p class="resumo" id="contaInfo"></p>
+      </div>
+      <div class="conta-menu">
+        <button type="button" class="ghost" data-acao="transferir">Trocar de mesa</button>
+        <button type="button" class="ghost perigo" data-acao="liberar" id="bLiberar" hidden>Liberar mesa</button>
+      </div>
+    </div>
+    <div class="seg" role="tablist" aria-label="Painel">
+      <button type="button" role="tab" id="segCardapio" data-painel="cardapio" aria-selected="true">Cardápio</button>
+      <button type="button" role="tab" id="segComanda" data-painel="comanda" aria-selected="false">Comanda <span class="num" id="segQtd">0</span></button>
+    </div>
+    <div class="conta-grid" id="contaGrid" data-painel="cardapio">
+      <section class="painel painel-cardapio" aria-label="Cardápio">
+        <input type="search" id="busca" placeholder="Buscar item" autocomplete="off" aria-label="Buscar item do cardápio">
+        <div class="chips" id="chips" role="group" aria-label="Categorias"></div>
+        <div class="produtos" id="produtos"></div>
+      </section>
+      <section class="painel painel-comanda" aria-label="Comanda">
+        <h2>Comanda</h2>
+        <ul class="itens" id="itens"></ul>
+        <p class="vazio" id="itensVazio">Nenhum item ainda. Toque nos itens do cardápio.</p>
+        <dl class="totais" id="totaisConta"></dl>
+      </section>
+    </div>
+    <div class="barra-fixa">
+      <div class="barra-total"><span>Total parcial</span><strong id="barraTotal">R$ 0,00</strong></div>
+      <button type="button" class="btn" data-acao="comanda" id="bComanda">Enviar comanda</button>
+      <button type="button" class="btn amarelo" data-acao="fechar" id="bFechar">Fechar conta</button>
+    </div>
+  </section>
+
+  <!-- ESTOQUE -->
+  <section id="telaEstoque" class="tela" hidden>
+    <div class="titulo-linha">
+      <h1>Estoque</h1>
+      <div class="acoes-linha">
+        <button type="button" class="btn" data-acao="novoProduto">Novo produto</button>
+        <button type="button" class="btn sec" data-acao="historico">Histórico</button>
+        <button type="button" class="btn sec" data-acao="backup">Fazer backup</button>
+        <button type="button" class="btn sec" data-acao="equipe">Equipe</button>
+        <button type="button" class="btn sec" data-acao="configLoja">Configurações</button>
+      </div>
+    </div>
+    <div class="alerta-estoque" id="alertaEstoque" hidden></div>
+    <input type="search" id="buscaEstoque" placeholder="Buscar produto" aria-label="Buscar produto" autocomplete="off">
+    <div class="lista-estoque" id="listaEstoque"></div>
+  </section>
+
+  <!-- VENDAS -->
+  <section id="telaVendas" class="tela" hidden>
+    <div class="titulo-linha">
+      <h1>Vendas</h1>
+      <div class="acoes-linha">
+        <label class="campo-inline" for="dataVendas">Dia <input type="date" id="dataVendas"></label>
+      </div>
+    </div>
+    <div class="cards" id="cardsVendas"></div>
+    <div class="duas-colunas">
+      <section class="painel"><h2>Por forma de pagamento</h2><div id="formasVendas"></div></section>
+      <section class="painel"><h2>Mais vendidos</h2><div id="topVendas"></div></section>
+    </div>
+    <section class="painel"><h2>Contas fechadas</h2><div id="contasVendas"></div></section>
+  </section>
+</main>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<!-- ABRIR MESA -->
+<dialog id="dMesa" aria-labelledby="dMesaT">
+  <form id="fMesa">
+    <h2 id="dMesaT">Abrir mesa</h2>
+    <label>Quantas pessoas?
+      <input type="number" id="mPessoas" min="1" max="99" value="1" inputmode="numeric">
+    </label>
+    <label>Nome ou identificação (opcional)
+      <input type="text" id="mNome" maxlength="40" autocomplete="off" placeholder="Ex.: Família Silva">
+    </label>
+    <div class="botoes"><button type="button" class="btn sec" data-fechar>Cancelar</button><button class="btn" type="submit">Abrir mesa</button></div>
+  </form>
+</dialog>
+
+<!-- OBSERVAÇÃO -->
+<dialog id="dObs" aria-labelledby="dObsT">
+  <form id="fObs">
+    <h2 id="dObsT">Observação do item</h2>
+    <p class="fino" id="obsItem"></p>
+    <label>Observação para a cozinha
+      <input type="text" id="oTexto" maxlength="80" autocomplete="off" placeholder="Ex.: ao ponto, sem pimenta">
+    </label>
+    <div class="botoes"><button type="button" class="btn sec" data-fechar>Cancelar</button><button class="btn" type="submit">Salvar</button></div>
+  </form>
+</dialog>
+
+<!-- TROCAR DE MESA -->
+<dialog id="dTrocar" aria-labelledby="dTrocarT">
+  <form id="fTrocar">
+    <h2 id="dTrocarT">Trocar de mesa</h2>
+    <label>Levar a conta para
+      <select id="tMesa"></select>
+    </label>
+    <div class="botoes"><button type="button" class="btn sec" data-fechar>Cancelar</button><button class="btn" type="submit">Trocar</button></div>
+  </form>
+</dialog>
+
+<!-- FECHAR CONTA -->
+<dialog id="dFechar" aria-labelledby="dFecharT" class="larga">
+  <form id="fFechar">
+    <h2 id="dFecharT">Fechar conta</h2>
+    <p class="aviso-amarelo" id="fAviso" hidden></p>
+    <dl class="totais" id="fTotais"></dl>
+    <div class="linha-campos">
+      <label class="check"><input type="checkbox" id="fUsaServico" checked> Cobrar serviço</label>
+      <label>Serviço (%) <input type="number" id="fPct" min="0" max="30" step="1" inputmode="numeric"></label>
+      <label>Desconto (R$) <input type="text" id="fDesc" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+      <label>Dividir por <input type="number" id="fPessoas" min="1" max="99" inputmode="numeric"></label>
+    </div>
+    <p class="divisao" id="fDivisao"></p>
+    <h3>Pagamento</h3>
+    <div id="fPagamentos"></div>
+    <button type="button" class="btn sec pequeno" id="fAddPag">Adicionar outra forma</button>
+    <p class="situacao" id="fSituacao" role="status"></p>
+    <div class="botoes">
+      <button type="button" class="btn sec" data-fechar>Voltar</button>
+      <button type="button" class="btn sec" id="fPrevia">Mostrar conta</button>
+      <button class="btn" type="submit" id="fConfirma">Confirmar pagamento</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- CONFERÊNCIA DA CONTA (mostrar ao cliente antes de imprimir) -->
+<dialog id="dConta" class="larga" aria-labelledby="dContaT">
+  <h2 id="dContaT">Conta</h2>
+  <p class="situacao ok" id="cfSit" hidden></p>
+  <div class="papel" id="cfPapel" tabindex="0" aria-label="Conta para conferência"></div>
+  <div class="botoes">
+    <button type="button" class="btn sec" id="cfFechar">Fechar</button>
+    <button type="button" class="btn" id="cfImprimir">Imprimir conta</button>
+  </div>
+</dialog>
+
+<!-- PRODUTO -->
+<dialog id="dProduto" aria-labelledby="dProdutoT">
+  <form id="fProduto">
+    <h2 id="dProdutoT">Produto</h2>
+    <label>Nome <input type="text" id="pNome" maxlength="60" required autocomplete="off"></label>
+    <div class="linha-campos">
+      <label>Categoria <input type="text" id="pCat" list="listaCats" maxlength="30" autocomplete="off"></label>
+      <label>Setor da comanda <select id="pSetor"></select></label>
+      <label>Preço (R$) <input type="text" id="pPreco" inputmode="decimal" required autocomplete="off" placeholder="0,00"></label>
+      <label>Unidade <input type="text" id="pUn" maxlength="10" value="un" autocomplete="off"></label>
+      <label>Estoque mínimo <input type="number" id="pMin" min="0" step="any" value="0" inputmode="decimal"></label>
+      <label id="pEstLinha">Estoque inicial <input type="number" id="pEst" min="0" step="any" value="0" inputmode="decimal"></label>
+    </div>
+    <datalist id="listaCats"></datalist>
+    <label class="check"><input type="checkbox" id="pControla" checked> Controlar estoque deste item</label>
+    <label class="check" id="pAtivoLinha"><input type="checkbox" id="pAtivo" checked> Aparece no cardápio</label>
+    <p class="erro" id="pErro" role="alert"></p>
+    <div class="botoes"><button type="button" class="btn sec" data-fechar>Cancelar</button><button class="btn" type="submit">Salvar</button></div>
+  </form>
+</dialog>
+
+<!-- MOVIMENTO DE ESTOQUE -->
+<dialog id="dMov" aria-labelledby="dMovT">
+  <form id="fMov">
+    <h2 id="dMovT">Movimento de estoque</h2>
+    <p class="fino" id="movProduto"></p>
+    <fieldset>
+      <legend>O que aconteceu?</legend>
+      <label class="check"><input type="radio" name="movTipo" value="entrada" checked> Entrada (compra de mercadoria)</label>
+      <label class="check"><input type="radio" name="movTipo" value="perda"> Perda ou quebra</label>
+      <label class="check"><input type="radio" name="movTipo" value="ajuste"> Contagem (acertar o estoque)</label>
+    </fieldset>
+    <label><span id="movQtdRotulo">Quantidade</span> <input type="number" id="movQtd" min="0" step="any" required inputmode="decimal"></label>
+    <label id="movCustoLinha">Custo por unidade (R$, opcional) <input type="text" id="movCusto" inputmode="decimal" autocomplete="off"></label>
+    <label>Observação (opcional) <input type="text" id="movObs" maxlength="80" autocomplete="off"></label>
+    <p class="erro" id="movErro" role="alert"></p>
+    <div class="botoes"><button type="button" class="btn sec" data-fechar>Cancelar</button><button class="btn" type="submit">Registrar</button></div>
+  </form>
+</dialog>
+
+<!-- HISTÓRICO -->
+<dialog id="dHist" aria-labelledby="dHistT" class="larga">
+  <h2 id="dHistT">Histórico de estoque</h2>
+  <div id="histCorpo" class="hist"></div>
+  <div class="botoes"><button type="button" class="btn" data-fechar>Fechar</button></div>
+</dialog>
+
+<!-- CONFIGURAÇÃO DE IMPRESSÃO -->
+<dialog id="dConfig" aria-labelledby="dConfigT">
+  <form id="fConfig">
+    <h2 id="dConfigT">Impressão neste aparelho</h2>
+    <label>Como imprimir
+      <select id="cModo">
+        <option value="navegador">Pelo navegador (impressora instalada no aparelho)</option>
+        <option value="ble">Bluetooth direto (impressora BLE, Chrome no Android)</option>
+        <option value="rawbt">App RawBT (Android, impressora Bluetooth)</option>
+      </select>
+    </label>
+    <label>Largura do papel
+      <select id="cCols"><option value="48">80 mm (48 colunas)</option><option value="32">58 mm (32 colunas)</option></select>
+    </label>
+    <p class="fino" id="cDica"></p>
+    <div class="botoes">
+      <button type="button" class="btn sec" id="cTeste">Imprimir teste</button>
+      <button type="button" class="btn sec" data-fechar>Fechar</button>
+      <button class="btn" type="submit">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- CONFIGURAÇÕES DA LOJA -->
+<dialog id="dLoja" aria-labelledby="dLojaT">
+  <form id="fLoja">
+    <h2 id="dLojaT">Configurações da loja</h2>
+    <label>Nome da loja (sai na conta) <input type="text" id="lNome" maxlength="40" required autocomplete="off"></label>
+    <div class="linha-campos">
+      <label>Número de mesas <input type="number" id="lMesas" min="1" max="80" inputmode="numeric" required></label>
+      <label>Serviço (%) <input type="number" id="lServico" min="0" max="30" inputmode="numeric" required></label>
+    </div>
+    <label>Outros pontos de venda, separados por vírgula <input type="text" id="lExtras" maxlength="60" autocomplete="off" placeholder="Balcão, Viagem"></label>
+    <label>Frase no rodapé da conta <input type="text" id="lRodape" maxlength="80" autocomplete="off"></label>
+    <label class="check"><input type="checkbox" id="lBloqueia"> Não deixar lançar item sem estoque</label>
+    <div class="zona-perigo">
+      <p class="fino">Usou o app para testar? Apague as vendas de teste antes de começar a valer. O cardápio e as configurações ficam, e o estoque volta ao que era.</p>
+      <button type="button" class="btn sec pequeno" id="lZerar">Apagar todas as vendas e mesas</button>
+    </div>
+    <p class="erro" id="lErro" role="alert"></p>
+    <div class="botoes"><button type="button" class="btn sec" data-fechar>Cancelar</button><button class="btn" type="submit">Salvar</button></div>
+  </form>
+</dialog>
+
+<!-- EQUIPE -->
+<dialog id="dEquipe" class="larga" aria-labelledby="dEquipeT">
+  <h2 id="dEquipeT">Equipe</h2>
+  <p class="fino">Quem está aqui abre e fecha mesas, lança pedidos e imprime. Não vê vendas nem mexe em preços, só o estoque baixa sozinho com os pedidos.</p>
+  <div id="listaEquipe" class="lista-equipe"></div>
+  <form id="fEquipe">
+    <h3>Cadastrar pessoa</h3>
+    <label>Nome <input type="text" id="eNome" maxlength="40" autocomplete="off" required></label>
+    <label>E-mail de login <input type="email" id="eEmail" autocomplete="off" autocapitalize="off" inputmode="email" required></label>
+    <label>Senha (mínimo 6 caracteres) <input type="text" id="eSenha" minlength="6" autocomplete="off" autocapitalize="off" required></label>
+    <p class="fino">O e-mail pode ser inventado, como maria@cavalcante.app. Anote a senha e entregue à pessoa.</p>
+    <p class="erro" id="eErro" role="alert"></p>
+    <div class="botoes"><button type="button" class="btn sec" data-fechar>Fechar</button><button class="btn" type="submit" id="bEquipeSalvar">Cadastrar</button></div>
+  </form>
+</dialog>
+
+<div id="areaImpressao" aria-hidden="true"></div>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="banco-nuvem.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
