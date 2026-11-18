@@ -205,6 +205,7 @@
     cols: Number(localStorage.getItem("colsImpressao")) || config().colunas || 48
   });
   const semAcento = (t) => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const lp = (e, d, c, extra = {}) => ({ t: par(e, d, c), e: String(e), d: String(d), ...extra });
   const par = (e, d, c) => { e = String(e); d = String(d); return e.slice(0, Math.max(0, c - d.length - 1)) + " ".repeat(Math.max(1, c - e.length - d.length)) + d; };
   function quebrar(t, larg) {
     const linhas = []; let atual = "";
@@ -239,18 +240,18 @@
     if (c.nome) quebrar("Cliente: " + c.nome, cols).forEach((x) => L.push({ t: x, a: "c" }));
     L.push({ t: traco });
     c.itens.forEach((i) => {
-      L.push({ t: par(`${i.qtd}x ${i.nome}`, brl(i.preco * i.qtd), cols) });
+      L.push(lp(`${i.qtd}x ${i.nome}`, brl(i.preco * i.qtd), cols));
       if (i.qtd > 1) L.push({ t: `   ${brl(i.preco)} cada` });
     });
-    L.push({ t: traco }, { t: par("Subtotal", brl(T.sub), cols) });
-    if (T.serv) L.push({ t: par(`Servico${T.pct ? " " + T.pct + "%" : ""}`, brl(T.serv), cols) });
-    if (T.desc) L.push({ t: par("Desconto", "-" + brl(T.desc), cols) });
-    L.push({ t: par("TOTAL", brl(T.total), meia), n: true, g: true });
+    L.push({ t: traco }, lp("Subtotal", brl(T.sub), cols));
+    if (T.serv) L.push(lp(`Servico${T.pct ? " " + T.pct + "%" : ""}`, brl(T.serv), cols));
+    if (T.desc) L.push(lp("Desconto", "-" + brl(T.desc), cols));
+    L.push(lp("TOTAL", brl(T.total), meia, { n: true, g: true }));
     if (opc.dividir > 1) L.push({ t: `Por pessoa (${opc.dividir}): ${brl(Math.ceil(T.total / opc.dividir))}`, n: true });
     if (opc.pagamentos && opc.pagamentos.length) {
       L.push({ t: traco });
-      comTroco(opc.pagamentos, opc.troco).forEach((p) => L.push({ t: par(p.forma + (p.forma === "Dinheiro" && opc.troco ? " (recebido)" : ""), brl(p.valor), cols) }));
-      if (opc.troco) L.push({ t: par("Troco", brl(opc.troco), cols) });
+      comTroco(opc.pagamentos, opc.troco).forEach((p) => L.push(lp(p.forma + (p.forma === "Dinheiro" && opc.troco ? " (recebido)" : ""), brl(p.valor), cols)));
+      if (opc.troco) L.push(lp("Troco", brl(opc.troco), cols));
     }
     L.push({ t: traco });
     quebrar(config().rodape || "", cols).forEach((x) => L.push({ t: x, a: "c" }));
@@ -331,12 +332,23 @@
 
   // ====================== Conferência da conta (mostrar ao cliente antes de imprimir) ======================
   let conferida = null;
+  // Na tela a conta é redesenhada em letra grande (não precisa caber em 32 ou 48 colunas como no papel).
+  function htmlTela(L) {
+    return L.map((l) => {
+      if (/^-{8,}$/.test(l.t)) return "<hr>";
+      const cls = (l.n ? " n" : "") + (l.g ? " g" : "");
+      if (l.e !== undefined) return `<div class="lin${cls}"><span>${esc(l.e)}</span><span>${esc(l.d)}</span></div>`;
+      const txt = l.t.trim();
+      if (!txt) return `<div class="vazio-l"></div>`;
+      return `<div class="txt${cls}${l.a === "c" ? " c" : ""}${/^\s/.test(l.t) ? " recuo" : ""}">${esc(txt)}</div>`;
+    }).join("");
+  }
   function abrirConferencia(linhas, { titulo = "Conta", situacao = "" } = {}) {
     const { cols } = prefsImpressao();
     conferida = linhas;
     $("#dContaT").textContent = titulo;
     $("#cfSit").hidden = !situacao; $("#cfSit").textContent = situacao;
-    const papel = $("#cfPapel"); papel.style.setProperty("--cols", cols); papel.innerHTML = htmlLinhas(linhas, cols);
+    const papel = $("#cfPapel"); papel.innerHTML = htmlTela(linhas);
     $("#cfImprimir").disabled = false;
     if (!$("#dConta").open) $("#dConta").showModal();
     papel.scrollTop = 0;

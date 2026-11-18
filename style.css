@@ -213,8 +213,17 @@ dialog form h3 { margin-top: 18px; font-size: 17px; }
 .rodape-dev { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 28px auto 12px; color: var(--suave); font-size: 12px; }
 .rodape-dev img { width: 160px; height: auto; border-radius: 12px; opacity: .92; }
 
-/* Conta na tela para o cliente conferir (parece o papel da impressora) */
-.papel { background: #fff; color: #111; font: min(13px, calc((100vw - 110px) / (var(--cols, 48) * 0.61))) / 1.35 "Courier New", monospace; white-space: pre; padding: 14px 10px; margin: 12px auto; width: fit-content; max-width: 100%; max-height: 52vh; overflow: auto; border-radius: 6px; box-shadow: 0 0 0 3px rgba(255,255,255,.08); }
+/* Conta na tela para o cliente conferir: letra grande, estilo papel */
+#dConta { width: min(98vw, 520px); padding: 16px 12px; }
+.papel { background: #fff; color: #111; font: 17px/1.4 "Courier New", ui-monospace, monospace; padding: 16px 14px; margin: 12px 0; max-height: 62vh; overflow: auto; border-radius: 8px; }
+.papel .txt.c { text-align: center; }
+.papel .txt.recuo { padding-left: 1.2em; color: #444; font-size: 15px; }
 .papel .n { font-weight: 700; }
-.papel .g { font-size: 2em; line-height: 1.2; }
-#dConta .situacao { text-align: center; font-size: 17px; }
+.papel .lin { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.papel .lin span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.papel .lin span:last-child { white-space: nowrap; font-weight: 700; }
+.papel .g { font-size: 26px; line-height: 1.25; }
+.papel hr { border: 0; border-top: 2px dashed #888; margin: 8px 0; }
+.papel .vazio-l { height: .6em; }
+#dConta .situacao { text-align: center; font-size: 19px; }
+#dConta .botoes .btn { min-height: 52px; font-size: 17px; }
