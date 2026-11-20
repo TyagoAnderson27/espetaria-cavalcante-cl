@@ -8,7 +8,9 @@
       "banco.js",
       "espetaria-backup-*.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "firebase-debug.log",
+      ".firebase"
     ],
     "headers": [
       {

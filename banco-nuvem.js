@@ -186,7 +186,7 @@ const Banco = (() => {
     prod.estoque = Math.round((prod.estoque + delta) * 1000) / 1000;
     if (novos.has(prod.id)) marcar("produtos", prod);
     else incs.set(prod.id, (incs.get(prod.id) || 0) + delta);
-    const m = { id: novoId(), produto_id: prod.id, tipo, qtd: delta, custo: custo ?? null, obs: obs ?? null, conta_id: contaId ?? null, criado_em: agora() };
+    const m = { id: novoId(), produto_id: prod.id, tipo, qtd: delta, custo: custo ?? null, obs: obs ?? null, conta_id: contaId ?? null, criado_em: agora(), por: nomeUsuario };
     marcar("movimentos", m);
   }
   function contaAberta(id) {
@@ -218,9 +218,13 @@ const Banco = (() => {
       if (produto.estoque - qtd < 0) aviso = `Estoque de ${produto.nome} ficou negativo. Confira a contagem.`;
     }
     const igual = S.itens.find((i) => i.conta_id === conta.id && i.produto_id === produto.id && i.obs === obs && !i.impresso);
-    if (igual) { igual.qtd += qtd; marcar("itens", igual); }
+    if (igual) {
+      igual.qtd += qtd;
+      if (nomeUsuario && !String(igual.por || "").split(", ").includes(nomeUsuario)) igual.por = igual.por ? `${igual.por}, ${nomeUsuario}` : nomeUsuario;
+      marcar("itens", igual);
+    }
     else {
-      const n = { id: novoId(), conta_id: conta.id, produto_id: produto.id, nome: produto.nome, preco: produto.preco, qtd, obs, setor: produto.setor, impresso: 0, criado_em: agora(), conta_aberta: true };
+      const n = { id: novoId(), conta_id: conta.id, produto_id: produto.id, nome: produto.nome, preco: produto.preco, qtd, obs, setor: produto.setor, impresso: 0, criado_em: agora(), conta_aberta: true, por: nomeUsuario };
       S.itens.push(n); marcar("itens", n);
     }
     if (produto.controla) mover(produto, -qtd, "venda", `Mesa ${conta.mesa}`, conta.id);
@@ -238,7 +242,7 @@ const Banco = (() => {
       config: { nome: cfg.nome, mesas: mesas(), setores: cfg.setores, servicoPct: cfg.servicoPct, formas: cfg.formasPagamento, colunas: cfg.colunas,
         rodape: cfg.rodape, bloquearSemEstoque: cfg.bloquearSemEstoque, pinPadrao: false },
       backup: { ultimo: lembrar("espetaria.ultimoBackup"), dias: null, atrasado: false },
-      produtos: S.produtos.filter((p) => p.ativo).sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome)),
+      produtos: S.produtos.filter((p) => p.ativo).map((p) => { if (papel === "dono") return p; const { custo, ...resto } = p; return resto; }).sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome)),
       contas: abertas.map((c) => {
         const it = itensDe(c.id);
         return { id: c.id, mesa: c.mesa, nome: c.nome, pessoas: c.pessoas, aberta_em: c.aberta_em, subtotal: soma(it, (i) => i.preco * i.qtd),
@@ -327,7 +331,7 @@ const Banco = (() => {
     const dia = hoje(), gravados = [];
     // Número fixo por conta: se dois aparelhos fecharem a mesma conta ao mesmo tempo, o pagamento não duplica.
     pags.filter((p) => p.valor > 0).forEach((p, n) => { const x = { id: `${conta.id}-${n + 1}`, conta_id: conta.id, forma: p.forma, valor: p.valor, dia }; gravados.push(x); marcar("pagamentos", x); });
-    Object.assign(conta, { status: "fechada", fechada_em: agora(), dia, subtotal, servico, desconto, total, troco }); marcar("contas", conta);
+    Object.assign(conta, { status: "fechada", fechada_em: agora(), fechada_por: nomeUsuario, dia, subtotal, servico, desconto, total, troco }); marcar("contas", conta);
     itens.forEach((i) => { i.conta_aberta = false; i.dia = dia; marcar("itens", i); });
     const saida = { ...conta, itens: clone(itens), pagamentos: clone(gravados) };
     S.contas.splice(S.contas.indexOf(conta), 1); S.itens = S.itens.filter((i) => i.conta_id !== conta.id);
@@ -338,7 +342,7 @@ const Banco = (() => {
   rota("GET", "/api/produtos/todos", () => [...S.produtos].sort((a, b) => b.ativo - a.ativo || a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome)), { dono: true });
   function lerProduto(b) {
     return { nome: texto(b.nome, 60, "Nome", true), categoria: texto(b.categoria, 30, "Categoria") || "Outros", setor: cfg.setores.includes(b.setor) ? b.setor : cfg.setores[0],
-      preco: inteiro(b.preco, "Preço", 0), unidade: texto(b.unidade, 10, "Unidade") || "un", controla: b.controla ? 1 : 0, minimo: Math.max(0, Number(b.minimo) || 0) };
+      preco: inteiro(b.preco, "Preço", 0), custo: inteiro(b.custo ?? 0, "Custo", 0), unidade: texto(b.unidade, 10, "Unidade") || "un", controla: b.controla ? 1 : 0, minimo: Math.max(0, Number(b.minimo) || 0) };
   }
   rota("POST", "/api/produtos", ({ body }) => {
     const d = lerProduto(body), p = { id: novoId(), ...d, estoque: 0, ativo: 1 };
@@ -358,7 +362,7 @@ const Banco = (() => {
     if (!p) throw new Erro(404, "Produto não encontrado.");
     const tipo = body.tipo, qtd = Number(body.qtd), obs = texto(body.obs, 80, "Observação");
     if (!Number.isFinite(qtd) || qtd < 0) throw new Erro(400, "Quantidade inválida.");
-    if (tipo === "entrada") { if (qtd <= 0) throw new Erro(400, "Informe a quantidade."); mover(p, qtd, "entrada", obs || "Compra", null, body.custo ? inteiro(body.custo, "Custo", 0) : null); }
+    if (tipo === "entrada") { if (qtd <= 0) throw new Erro(400, "Informe a quantidade."); const custo = body.custo ? inteiro(body.custo, "Custo", 0) : null; mover(p, qtd, "entrada", obs || "Compra", null, custo); if (custo) { p.custo = custo; marcar("produtos", p); } }
     else if (tipo === "perda") { if (qtd <= 0) throw new Erro(400, "Informe a quantidade."); mover(p, -qtd, "perda", obs || "Perda"); }
     else if (tipo === "ajuste") mover(p, qtd - p.estoque, "ajuste", obs || `Contagem: ${qtd}`);
     else throw new Erro(400, "Tipo de movimento inválido.");
@@ -386,6 +390,19 @@ const Banco = (() => {
     });
     r.top = Object.values(top).sort((a, b) => b.qtd - a.qtd).slice(0, 8);
     return { resumo: r, contas: lista };
+  }, { dono: true });
+
+  // Faturamento do mês (só o dono): soma as contas fechadas dos dias do mês pedido e compara com o mês anterior
+  rota("GET", "/api/faturamento", async ({ query }) => {
+    const mes = /^\d{4}-\d{2}$/.test(query.mes || "") ? query.mes : hoje().slice(0, 7);
+    const [a, m] = mes.split("-").map(Number), ant = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, "0")}`;
+    const ler = async (ym) => (await col("contas").where("dia", ">=", ym + "-01").where("dia", "<=", ym + "-31").get()).docs.map((d) => d.data()).filter((c) => c.status === "fechada");
+    const [cs, cAnt] = await Promise.all([ler(mes), ler(ant)]);
+    const porDia = {}; let total = 0, servico = 0, desconto = 0;
+    cs.forEach((c) => { total += c.total; servico += c.servico; desconto += c.desconto; const d = (porDia[c.dia] = porDia[c.dia] || { dia: c.dia, contas: 0, total: 0 }); d.contas++; d.total += c.total; });
+    const dias = Object.values(porDia).sort((x, y) => (x.dia < y.dia ? 1 : -1));
+    const melhor = dias.reduce((b, d) => (!b || d.total > b.total ? d : b), null);
+    return { mes, contas: cs.length, total, servico, desconto, dias, melhor, anterior: { mes: ant, total: cAnt.reduce((s, c) => s + c.total, 0), contas: cAnt.length } };
   }, { dono: true });
 
   // Configurações da loja (só o dono altera)

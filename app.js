@@ -63,7 +63,7 @@
     if (tela === "mesas") renderMesas();
     if (tela === "conta") { contaAtual = null; await abrirConta(Number(id)); }
     if (tela === "estoque") carregarEstoque();
-    if (tela === "vendas") carregarVendas();
+    if (tela === "vendas") { carregarVendas(); carregarFaturamento(); }
   }
   window.addEventListener("hashchange", rotear);
 
@@ -143,6 +143,7 @@
       <li class="item" data-id="${i.id}">
         <div class="i-topo"><span class="i-nome">${i.qtd}× ${esc(i.nome)}</span><span class="i-valor">${brl(i.preco * i.qtd)}</span></div>
         ${i.obs ? `<div class="i-obs">${esc(i.obs)}</div>` : ""}
+        ${i.por ? `<div class="i-por">lançado por ${esc(i.por)}</div>` : ""}
         <div class="i-baixo">
           <button type="button" class="mini" data-acao="menos" data-id="${i.id}" aria-label="Tirar um ${esc(i.nome)}">−</button>
           <span class="qtd" aria-hidden="true">${i.qtd}</span>
@@ -237,6 +238,7 @@
     L.push({ t: (/^\d+$/.test(c.mesa) ? "CONTA - MESA " + c.mesa : "CONTA - " + c.mesa.toUpperCase()), a: "c", n: true });
     L.push({ t: `Abertura: ${dataBR(c.aberta_em)}`, a: "c" });
     L.push({ t: `Impressao: ${agoraBR()}`, a: "c" });
+    if (c.fechada_por || c.aberta_por) L.push({ t: `Atendente: ${c.fechada_por || c.aberta_por}`, a: "c" });
     if (c.nome) quebrar("Cliente: " + c.nome, cols).forEach((x) => L.push({ t: x, a: "c" }));
     L.push({ t: traco });
     c.itens.forEach((i) => {
@@ -447,12 +449,17 @@
     const baixos = produtosTodos.filter((p) => p.ativo && p.controla && p.estoque <= p.minimo);
     $("#alertaEstoque").hidden = !baixos.length;
     $("#alertaEstoque").innerHTML = baixos.length ? `<strong>Repor:</strong> ${baixos.map((p) => `${esc(p.nome)} (${qtdTxt(p.estoque)})`).join(" · ")}` : "";
+    const ctrl = produtosTodos.filter((p) => p.ativo && p.controla && p.estoque > 0);
+    const custoTotal = ctrl.reduce((s, p) => s + Math.round(p.estoque * (p.custo || 0)), 0), vendaTotal = ctrl.reduce((s, p) => s + Math.round(p.estoque * p.preco), 0);
+    const semCusto = ctrl.filter((p) => !p.custo).length;
+    $("#cardsEstoque").innerHTML = [["Custo do estoque", brl(custoTotal)], ["Valor de venda do estoque", brl(vendaTotal)], ["Lucro previsto", brl(vendaTotal - custoTotal)]]
+      .map(([a, b]) => `<div class="cartao"><span>${a}</span><strong>${b}</strong></div>`).join("") + (semCusto ? `<p class="fino" style="grid-column:1/-1">${semCusto} produto${semCusto > 1 ? "s" : ""} com estoque ainda sem custo cadastrado.</p>` : "");
     const lista = produtosTodos.filter((p) => !q || (p.nome + " " + p.categoria).toLowerCase().includes(q));
     $("#listaEstoque").innerHTML = lista.map((p) => {
       const cls = !p.controla ? "" : p.estoque <= 0 ? "zero" : p.estoque <= p.minimo ? "baixo" : "";
       return `<div class="prodlinha${p.ativo ? "" : " inativo"}">
-        <div><div class="pl-nome">${esc(p.nome)}</div><div class="pl-sub">${esc(p.categoria)} · ${esc(p.setor)} · ${brl(p.preco)}${p.ativo ? "" : " · fora do cardápio"}</div></div>
-        <div class="pl-est ${cls}">${p.controla ? qtdTxt(p.estoque) : "—"}<small>${p.controla ? `${esc(p.unidade)} · mín. ${qtdTxt(p.minimo)}${cls === "zero" ? " · sem estoque" : cls === "baixo" ? " · baixo" : ""}` : "sem controle"}</small></div>
+        <div><div class="pl-nome">${esc(p.nome)}</div><div class="pl-sub">${esc(p.categoria)} · ${esc(p.setor)} · venda ${brl(p.preco)}${p.custo ? ` · custo ${brl(p.custo)} · margem ${Math.round(((p.preco - p.custo) / (p.preco || 1)) * 100)}%` : " · sem custo"}${p.ativo ? "" : " · fora do cardápio"}</div></div>
+        <div class="pl-est ${cls}">${p.controla ? qtdTxt(p.estoque) : "—"}<small>${p.controla ? `${esc(p.unidade)} · mín. ${qtdTxt(p.minimo)}${cls === "zero" ? " · sem estoque" : cls === "baixo" ? " · baixo" : ""}${p.custo && p.estoque > 0 ? ` · ${brl(Math.round(p.estoque * p.custo))} em estoque` : ""}` : "sem controle"}</small></div>
         <div class="pl-acoes">
           ${p.controla ? `<button type="button" class="btn pequeno" data-acao="mov" data-id="${p.id}" data-tipo="entrada">Entrada</button><button type="button" class="btn sec pequeno" data-acao="mov" data-id="${p.id}" data-tipo="ajuste">Perda ou contagem</button>` : ""}
           <button type="button" class="btn sec pequeno" data-acao="editar" data-id="${p.id}">Editar</button>
@@ -468,7 +475,7 @@
     $("#pSetor").innerHTML = config().setores.map((s) => `<option>${esc(s)}</option>`).join("");
     $("#listaCats").innerHTML = [...new Set(produtosTodos.map((x) => x.categoria))].map((c) => `<option value="${esc(c)}">`).join("");
     $("#pNome").value = p ? p.nome : ""; $("#pCat").value = p ? p.categoria : ""; $("#pSetor").value = p ? p.setor : config().setores[0];
-    $("#pPreco").value = p ? numBR(p.preco) : ""; $("#pUn").value = p ? p.unidade : "un"; $("#pMin").value = p ? p.minimo : 0;
+    $("#pPreco").value = p ? numBR(p.preco) : ""; $("#pCusto").value = p && p.custo ? numBR(p.custo) : ""; $("#pUn").value = p ? p.unidade : "un"; $("#pMin").value = p ? p.minimo : 0;
     $("#pEst").value = 0; $("#pControla").checked = p ? Boolean(p.controla) : true; $("#pAtivo").checked = p ? Boolean(p.ativo) : true;
     $("#pEstLinha").hidden = Boolean(p); $("#pAtivoLinha").hidden = !p; $("#pErro").textContent = "";
     $("#dProduto").showModal(); $("#pNome").focus();
@@ -477,7 +484,9 @@
     e.preventDefault();
     const preco = reais($("#pPreco").value);
     if (!Number.isFinite(preco)) { $("#pErro").textContent = "Informe o preço, por exemplo 12,50."; return; }
-    const corpo = { nome: $("#pNome").value, categoria: $("#pCat").value, setor: $("#pSetor").value, preco, unidade: $("#pUn").value,
+    const custo = $("#pCusto").value.trim() ? reais($("#pCusto").value) : 0;
+    if (!Number.isFinite(custo)) { $("#pErro").textContent = "Informe o custo, por exemplo 6,50."; return; }
+    const corpo = { nome: $("#pNome").value, categoria: $("#pCat").value, setor: $("#pSetor").value, preco, custo, unidade: $("#pUn").value,
       minimo: Number($("#pMin").value) || 0, estoque: Number($("#pEst").value) || 0, controla: $("#pControla").checked, ativo: $("#pAtivo").checked };
     try {
       await (editando ? api("PUT", `/api/produtos/${editando.id}`, corpo) : api("POST", "/api/produtos", corpo));
@@ -510,7 +519,7 @@
     try {
       const mv = await api("GET", "/api/movimentos");
       const nomes = { entrada: "Entrada", venda: "Venda", estorno: "Devolução", perda: "Perda", ajuste: "Contagem" };
-      $("#histCorpo").innerHTML = mv.length ? mv.map((m) => `<div class="linha2"><span>${dataBR(m.criado_em)} · ${esc(m.produto)}</span><span>${nomes[m.tipo] || m.tipo}: <strong class="${m.qtd < 0 ? "neg" : "pos"}">${m.qtd > 0 ? "+" : ""}${qtdTxt(m.qtd)}</strong>${m.obs ? ` · ${esc(m.obs)}` : ""}</span></div>`).join("") : `<p class="vazio">Sem movimentos ainda.</p>`;
+      $("#histCorpo").innerHTML = mv.length ? mv.map((m) => `<div class="linha2"><span>${dataBR(m.criado_em)} · ${esc(m.produto)}${m.por ? " · " + esc(m.por) : ""}</span><span>${nomes[m.tipo] || m.tipo}: <strong class="${m.qtd < 0 ? "neg" : "pos"}">${m.qtd > 0 ? "+" : ""}${qtdTxt(m.qtd)}</strong>${m.obs ? ` · ${esc(m.obs)}` : ""}</span></div>`).join("") : `<p class="vazio">Sem movimentos ainda.</p>`;
       $("#dHist").showModal();
     } catch (e) { aviso(erroMsg(e), "erro"); }
   }
@@ -563,11 +572,26 @@
         .map(([a, b]) => `<div class="cartao"><span>${a}</span><strong>${b}</strong></div>`).join("");
       $("#formasVendas").innerHTML = Object.entries(r.porForma).map(([f, val]) => `<div class="linha2"><span>${esc(f)}</span><strong>${brl(val)}</strong></div>`).join("") || `<p class="vazio">Sem vendas neste dia.</p>`;
       $("#topVendas").innerHTML = r.top.map((t) => `<div class="linha2"><span>${t.qtd}× ${esc(t.nome)}</span><strong>${brl(t.valor)}</strong></div>`).join("") || `<p class="vazio">Sem vendas neste dia.</p>`;
-      $("#contasVendas").innerHTML = v.contas.map((c) => `<div class="linha2"><span>${/^\d+$/.test(c.mesa) ? "Mesa " + esc(c.mesa) : esc(c.mesa)} · ${hora(c.fechada_em)} · ${c.pagamentos.map((p) => esc(p.forma)).join(" + ")}</span>
+      $("#contasVendas").innerHTML = v.contas.map((c) => `<div class="linha2"><span>${/^\d+$/.test(c.mesa) ? "Mesa " + esc(c.mesa) : esc(c.mesa)} · ${hora(c.fechada_em)} · ${c.pagamentos.map((p) => esc(p.forma)).join(" + ")}${c.aberta_por || c.fechada_por ? `<br><small class="i-por">${c.aberta_por ? "abriu: " + esc(c.aberta_por) : ""}${c.aberta_por && c.fechada_por ? " · " : ""}${c.fechada_por ? "fechou: " + esc(c.fechada_por) : ""}</small>` : ""}</span>
         <span><strong>${brl(c.total)}</strong> <button type="button" class="btn sec pequeno" data-acao="reimprimir" data-id="${c.id}">Reimprimir</button></span></div>`).join("") || `<p class="vazio">Nenhuma conta fechada neste dia.</p>`;
     } catch (e) { if (e.status === 401) location.hash = "#/mesas"; aviso(erroMsg(e), "erro"); }
   }
   $("#dataVendas").addEventListener("change", carregarVendas);
+  async function carregarFaturamento() {
+    if (!$("#mesVendas").value) $("#mesVendas").value = hojeISO().slice(0, 7);
+    try {
+      const f = await api("GET", `/api/faturamento?mes=${$("#mesVendas").value}`);
+      $("#fatTotal").textContent = brl(f.total);
+      const ant = f.anterior, pct = ant.total ? Math.round(((f.total - ant.total) / ant.total) * 100) : null;
+      $("#fatComp").textContent = ant.total ? `${pct >= 0 ? "▲" : "▼"} ${Math.abs(pct)}% sobre o mês anterior (${brl(ant.total)})` : "Sem vendas no mês anterior para comparar.";
+      $("#fatComp").className = pct === null ? "" : pct >= 0 ? "pos" : "neg";
+      $("#cardsMes").innerHTML = [["Contas fechadas", f.contas], ["Ticket médio", brl(f.contas ? Math.round(f.total / f.contas) : 0)], ["Média por dia aberto", brl(f.dias.length ? Math.round(f.total / f.dias.length) : 0)],
+        ["Melhor dia", f.melhor ? `${f.melhor.dia.slice(8)}/${f.melhor.dia.slice(5, 7)} · ${brl(f.melhor.total)}` : "—"]]
+        .map(([a, b]) => `<div class="cartao"><span>${a}</span><strong>${b}</strong></div>`).join("");
+      $("#diasMes").innerHTML = f.dias.map((d) => `<div class="linha2"><span>${d.dia.slice(8)}/${d.dia.slice(5, 7)} · ${d.contas} conta${d.contas > 1 ? "s" : ""}</span><strong>${brl(d.total)}</strong></div>`).join("") || `<p class="vazio">Sem vendas neste mês.</p>`;
+    } catch (e) { aviso(erroMsg(e), "erro"); }
+  }
+  $("#mesVendas").addEventListener("change", carregarFaturamento);
   async function reimprimir(id) {
     try {
       const c = await api("GET", `/api/contas/${id}`), { cols } = prefsImpressao();

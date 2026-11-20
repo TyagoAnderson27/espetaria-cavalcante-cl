@@ -107,6 +107,7 @@
         <button type="button" class="btn sec" data-acao="configLoja">Configurações</button>
       </div>
     </div>
+    <div class="cards" id="cardsEstoque"></div>
     <div class="alerta-estoque" id="alertaEstoque" hidden></div>
     <input type="search" id="buscaEstoque" placeholder="Buscar produto" aria-label="Buscar produto" autocomplete="off">
     <div class="lista-estoque" id="listaEstoque"></div>
@@ -114,6 +115,15 @@
 
   <!-- VENDAS -->
   <section id="telaVendas" class="tela" hidden>
+    <section class="painel faturamento">
+      <div class="titulo-linha">
+        <h2>Faturamento do mês</h2>
+        <div class="acoes-linha"><label class="campo-inline" for="mesVendas">Mês <input type="month" id="mesVendas"></label></div>
+      </div>
+      <div class="fat-total"><strong id="fatTotal">R$ 0,00</strong><span id="fatComp"></span></div>
+      <div class="cards" id="cardsMes"></div>
+      <details><summary>Faturamento por dia</summary><div id="diasMes"></div></details>
+    </section>
     <div class="titulo-linha">
       <h1>Vendas</h1>
       <div class="acoes-linha">
@@ -213,6 +223,7 @@
       <label>Categoria <input type="text" id="pCat" list="listaCats" maxlength="30" autocomplete="off"></label>
       <label>Setor da comanda <select id="pSetor"></select></label>
       <label>Preço (R$) <input type="text" id="pPreco" inputmode="decimal" required autocomplete="off" placeholder="0,00"></label>
+      <label>Custo por unidade (R$) <input type="text" id="pCusto" inputmode="decimal" autocomplete="off" placeholder="0,00"></label>
       <label>Unidade <input type="text" id="pUn" maxlength="10" value="un" autocomplete="off"></label>
       <label>Estoque mínimo <input type="number" id="pMin" min="0" step="any" value="0" inputmode="decimal"></label>
       <label id="pEstLinha">Estoque inicial <input type="number" id="pEst" min="0" step="any" value="0" inputmode="decimal"></label>

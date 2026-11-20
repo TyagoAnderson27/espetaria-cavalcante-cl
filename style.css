@@ -104,6 +104,7 @@ legend { padding: 0 6px; font-size: 14px; color: var(--suave); }
 .i-nome { flex: 1; font-weight: 700; }
 .i-valor { font-weight: 800; white-space: nowrap; }
 .i-obs { color: var(--amarelo); font-size: 14px; margin-top: 2px; }
+.i-por { color: var(--muted, #9aa0a6); font-size: 13px; margin-top: 2px; }
 .i-baixo { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .i-baixo .mini { min-width: 44px; min-height: 40px; border-radius: 10px; border: 1px solid var(--borda); background: transparent; cursor: pointer; font-weight: 800; }
 .i-baixo .mini.txt { padding: 0 12px; font-weight: 600; }
@@ -227,3 +228,9 @@ dialog form h3 { margin-top: 18px; font-size: 17px; }
 .papel .vazio-l { height: .6em; }
 #dConta .situacao { text-align: center; font-size: 19px; }
 #dConta .botoes .btn { min-height: 52px; font-size: 17px; }
+
+.fat-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin: 4px 0 12px; }
+.fat-total strong { font-size: 36px; line-height: 1.1; }
+.fat-total span { font-size: 15px; }
+#diasMes { margin-top: 8px; }
+.faturamento summary { cursor: pointer; padding: 8px 0; }
